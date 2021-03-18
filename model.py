@@ -4,6 +4,7 @@ import torch.nn.functional as F
 from tqdm.notebook import tqdm
 import copy
 import numpy as np
+import utils
 
 class CNN(nn.Module):
     def __init__(self):
@@ -67,16 +68,24 @@ def init_weights(m):
     if type(m) == nn.Linear or type(m) == nn.Conv2d:
         nn.init.kaiming_normal_(m.weight, nonlinearity='relu')
         
-def train(model, device, loss_criterion, optimizer, train_loader, val_loader, epochs, patience):
+def train(model, device, loss_criterion, optimizer, train_loader, val_loader, epochs, patience, layer):
     best_loss = float("inf")
     early_stop = 0
     best_weights = None
+
+    epoch_list = []
+    training_loss = []
+    validate_loss = []
     
     for i in range(epochs):
         print("Epoch {}".format(i+1))
-        train_epoch(model, device, loss_criterion, optimizer, train_loader)
+        train_loss = train_epoch(model, device, loss_criterion, optimizer, train_loader)
         val_loss = validate(model, device, loss_criterion, val_loader)
         print()
+
+        epoch_list.append(i+1)
+        training_loss.append(train_loss)
+        validate_loss.append(val_loss)
         
         """
         Early Stopping 
@@ -91,6 +100,9 @@ def train(model, device, loss_criterion, optimizer, train_loader, val_loader, ep
         if early_stop == patience:
             model.load_state_dict(best_weights)
             break
+
+    #Generate the learning curves
+    utils.generate_graph(epoch_list,training_loss,validate_loss, layer)
 
 def train_epoch(model, device, loss_criterion, optimizer, train_loader):
     model.train()
@@ -116,6 +128,8 @@ def train_epoch(model, device, loss_criterion, optimizer, train_loader):
         
         counter += 1
         tk0.set_postfix(loss=(running_loss / counter))
+
+    return (running_loss / counter)
         
 def validate(model, device, loss_criterion, val_loader):
     model.eval()
@@ -183,10 +197,7 @@ class Combined_Model:
         self.fl_model = fl_model
         self.sl_model = sl_model
 
-    def test_combine(self, device, test_loader):
-
-        #Currently using first layer test loader for predictions for BOTH first and second layer
-        #models. Somehow the combined test loader's input faces some issues
+    def test_combine(self, device, test_loader, print_acc=False, return_results=False):
 
         self.fl_model.eval()
         self.sl_model.eval()
@@ -209,7 +220,6 @@ class Combined_Model:
                 sl_target_covid = target[:,1:2] 
                 sl_target_noncovid = target[:,2:3]  
                 
-
                 #First Layer Check 
                 #for normal cases we manipulate so that 0 becomes 1, and 1 becomes 0           
                 fl_pred_mod = copy.deepcopy(fl_pred)
@@ -227,17 +237,25 @@ class Combined_Model:
                 sl_pred_covid[sl_pred_covid==1] = 0
                 sl_pred_covid[sl_pred_covid==2] = 1
 
+                #Accounts for the second layer check only when first layer shows that it is a 1 = Infected
                 sl_pred_covid = torch.mul(fl_pred,sl_pred_covid)
                 sl_pred_non_covid = torch.mul(fl_pred,sl_pred)
                 
+                #Calculates the equal matches between the target and data
                 equal_data_sl_covid = torch.sum(torch.mul(sl_target_covid.data,sl_pred_covid)).item()
                 equal_data_sl_non_covid = torch.sum(torch.mul(sl_target_noncovid.data,sl_pred_non_covid)).item()
                      
                 correct += equal_data_sl_covid
                 correct += equal_data_sl_non_covid
 
-        print('Test set accuracy: ', 100. * correct / len(test_loader.dataset), '%')
+                #Final Pred Results
+                pred = torch.cat((fl_pred_mod,sl_pred_covid,sl_pred_non_covid),1) 
 
+        if print_acc == True:
+            print('Test set accuracy: ', 100. * correct / len(test_loader.dataset), '%')
+
+        if return_results == True:
+            return pred
 
 
 def combine_models(fl_image_path, sl_image_path, device, L_RATE):
