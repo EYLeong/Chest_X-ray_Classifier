@@ -35,9 +35,10 @@ def generate_performance_display(val_loader, pred, labels):
 
 	for data, target in val_loader:
 
+
 		for i in range(num_images):
 			validation_data[i] = data[i][0].to("cpu").numpy()
-			validation_groundtruth[i] = target[i].to("cpu").numpy()
+			validation_groundtruth[i] = target[i].data.to("cpu").numpy()
 			validation_pred[i] = pred[i].to("cpu").numpy()
 			
 			if labels[tensor_to_label(validation_groundtruth[i])] == labels[tensor_to_label(validation_pred[i])]:

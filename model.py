@@ -81,7 +81,6 @@ def train(model, device, loss_criterion, optimizer, train_loader, val_loader, ep
         print("Epoch {}".format(i+1))
         train_loss = train_epoch(model, device, loss_criterion, optimizer, train_loader)
         val_loss = validate(model, device, loss_criterion, val_loader)
-        print()
 
         epoch_list.append(i+1)
         training_loss.append(train_loss)
