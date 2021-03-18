@@ -24,20 +24,24 @@ def generate_performance_display(val_loader, pred, labels):
 	'''
 
 	# Initialize figure and other required variables
-	plt.figure(figsize = (10, 10))
+	fig = plt.figure(figsize = (10, 10))
 	num_images = len(val_loader.dataset)
 	validation_data = np.zeros([num_images,150,150])
 	validation_groundtruth = np.zeros([num_images,3])
 
 	validation_pred = np.zeros([num_images,3])
 
+	correct = 0
+
 	for data, target in val_loader:
 
 		for i in range(num_images):
 			validation_data[i] = data[i][0].to("cpu").numpy()
 			validation_groundtruth[i] = target[i].to("cpu").numpy()
-
 			validation_pred[i] = pred[i].to("cpu").numpy()
+			
+			if labels[tensor_to_label(validation_groundtruth[i])] == labels[tensor_to_label(validation_pred[i])]:
+				correct += 1
 
 		for i in range(num_images):
 			plt.subplot(5,5, i+1)
@@ -47,6 +51,8 @@ def generate_performance_display(val_loader, pred, labels):
 			plt.yticks([])
 
 	plt.tight_layout()
+	plt.suptitle("Validation Set Pictures, with Predicted and Ground Truth Labels \n Average Performance {}/{} = {:.2f}%".format(correct,num_images, (correct/num_images)*100))
+	plt.subplots_adjust(top=0.88)
 	plt.show()
 
 def tensor_to_label(tensor):
