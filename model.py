@@ -7,7 +7,7 @@ import numpy as np
 import utils
 
 class CNN(nn.Module):
-    def __init__(self):
+    def __init__(self, dropout=0.1):
         super(CNN,self).__init__()
         
         """
@@ -18,25 +18,25 @@ class CNN(nn.Module):
             nn.MaxPool2d(kernel_size=2, stride=2),
             nn.ReLU(),
             nn.BatchNorm2d(64),
-            nn.Dropout(p=0.05))
+            nn.Dropout(p=dropout))
         self.conv2 = nn.Sequential(
             nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1),
             nn.MaxPool2d(kernel_size=2, stride=2),
             nn.ReLU(),
             nn.BatchNorm2d(128),
-            nn.Dropout(p=0.05))
+            nn.Dropout(p=dropout))
         self.conv3 = nn.Sequential(
             nn.Conv2d(128, 256, kernel_size=3, stride=1, padding=1),
             nn.MaxPool2d(kernel_size=2, stride=2),
             nn.ReLU(),
             nn.BatchNorm2d(256),
-            nn.Dropout(p=0.05))
+            nn.Dropout(p=dropout))
         self.conv4 = nn.Sequential(
             nn.Conv2d(256, 512, kernel_size=3, stride=1, padding=1),
             nn.MaxPool2d(kernel_size=2, stride=2),
             nn.ReLU(),
             nn.BatchNorm2d(512),
-            nn.Dropout(p=0.05))
+            nn.Dropout(p=dropout))
 
         self.final = nn.Sequential(
             nn.AdaptiveAvgPool2d((1,1)),
