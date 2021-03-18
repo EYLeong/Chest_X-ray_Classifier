@@ -78,6 +78,7 @@ def train(model, device, loss_criterion, optimizer, train_loader, val_loader, ep
     validate_loss = []
     
     for i in range(epochs):
+        print('\n')
         print("Epoch {}".format(i+1))
         train_loss = train_epoch(model, device, loss_criterion, optimizer, train_loader)
         val_loss = validate(model, device, loss_criterion, val_loader)
