@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
+import torch
 
 def generate_graph(epoch_list, train_loss, validate_loss, model):
 	'''
@@ -19,42 +20,46 @@ def generate_graph(epoch_list, train_loss, validate_loss, model):
 		fig.savefig('./saved_graphs/sl_learning_curve.png')
 
 def generate_performance_display(val_loader, pred, labels):
-	'''
-	This function is to display the performance of our trained model on the 24 images in the validation set.
-	'''
+    '''
+    This function is to display the performance of our trained model on the 24 images in the validation set.
+    '''
 
-	# Initialize figure and other required variables
-	fig = plt.figure(figsize = (10, 10))
-	num_images = len(val_loader.dataset)
-	validation_data = np.zeros([num_images,150,150])
-	validation_groundtruth = np.zeros([num_images,3])
+    # Initialize figure and other required variables
+    fig = plt.figure(figsize = (10, 10))
+    num_images = len(val_loader.dataset)
+    validation_data = np.zeros([num_images,150,150])
+    validation_groundtruth = np.zeros([num_images,3])
 
-	validation_pred = np.zeros([num_images,3])
+    validation_pred = np.zeros([num_images,3])
 
-	correct = 0
+    correct = 0
 
-	for data, target in val_loader:
+    data = torch.empty(0, 1, 150, 150)
+    target = torch.empty(0, 3)
 
+    for temp_data, temp_target in val_loader:
+        data = torch.cat((data, temp_data), 0)
+        target = torch.cat((target, temp_target), 0)
 
-		for i in range(num_images):
-			validation_data[i] = data[i][0].to("cpu").numpy()
-			validation_groundtruth[i] = target[i].data.to("cpu").numpy()
-			validation_pred[i] = pred[i].to("cpu").numpy()
-			
-			if labels[tensor_to_label(validation_groundtruth[i])] == labels[tensor_to_label(validation_pred[i])]:
-				correct += 1
+    for i in range(num_images):
+        validation_data[i] = data[i][0].to("cpu").numpy()
+        validation_groundtruth[i] = target[i].data.to("cpu").numpy()
+        validation_pred[i] = pred[i].to("cpu").numpy()
 
-		for i in range(num_images):
-			plt.subplot(5,5, i+1)
-			plt.imshow(validation_data[i], cmap='gray', interpolation='none')
-			plt.title("Label: " + labels[tensor_to_label(validation_groundtruth[i])] + "\n" + "Predicted: " + labels[tensor_to_label(validation_pred[i])])
-			plt.xticks([])
-			plt.yticks([])
+        if labels[tensor_to_label(validation_groundtruth[i])] == labels[tensor_to_label(validation_pred[i])]:
+            correct += 1
 
-	plt.tight_layout()
-	plt.suptitle("Validation Set Pictures, with Predicted and Ground Truth Labels \n Average Performance {}/{} = {:.2f}%".format(correct,num_images, (correct/num_images)*100))
-	plt.subplots_adjust(top=0.88)
-	plt.show()
+    for i in range(num_images):
+        plt.subplot(5,5, i+1)
+        plt.imshow(validation_data[i], cmap='gray', interpolation='none')
+        plt.title("Label: " + labels[tensor_to_label(validation_groundtruth[i])] + "\n" + "Predicted: " + labels[tensor_to_label(validation_pred[i])])
+        plt.xticks([])
+        plt.yticks([])
+
+    plt.tight_layout()
+    plt.suptitle("Validation Set Pictures, with Predicted and Ground Truth Labels \n Average Performance {}/{} = {:.2f}%".format(correct,num_images, (correct/num_images)*100))
+    plt.subplots_adjust(top=0.88)
+    plt.show()
 
 def tensor_to_label(tensor):
 	'''

@@ -105,6 +105,7 @@ def train(model, device, loss_criterion, optimizer, train_loader, val_loader, ep
     utils.generate_graph(epoch_list,training_loss,validate_loss, layer)
 
 def train_epoch(model, device, loss_criterion, optimizer, train_loader):
+    model.to(device)
     model.train()
     
     running_loss = 0
@@ -132,6 +133,7 @@ def train_epoch(model, device, loss_criterion, optimizer, train_loader):
     return (running_loss / counter)
         
 def validate(model, device, loss_criterion, val_loader):
+    model.to(device)
     model.eval()
 
     correct = 0
@@ -156,6 +158,7 @@ def validate(model, device, loss_criterion, val_loader):
     return (val_loss / len(val_loader))
     
 def test(model, device, test_loader):
+    model.to(device)
     model.eval()
     
     correct = 0
@@ -179,7 +182,7 @@ def save_model(model, optimizer, path):
                   }
     torch.save(checkpoint, path)
 
-def load_model(model, optimizer, path, device):
+def load_model(optim_class, lr, dropout, path):
     '''
     Saves model parameters instead of the whole model. 
     Requires first initialization of the model class to be fed as input to this function, in which
@@ -187,7 +190,9 @@ def load_model(model, optimizer, path, device):
     '''
 
     checkpoint = torch.load(path)
+    model = CNN(dropout=dropout)
     model.load_state_dict(checkpoint['state_dict'])
+    optimizer = optim_class(model.parameters(), lr=lr)
     optimizer = optimizer.load_state_dict(checkpoint['opti_state_dict'])
     
     return model, optimizer
@@ -196,76 +201,67 @@ class Combined_Model:
     def __init__(self,fl_model,sl_model):
         self.fl_model = fl_model
         self.sl_model = sl_model
-
-    def test_combine(self, device, test_loader, print_acc=False, return_results=False):
-
+        
+    def predict(self, device, data):
+        self.fl_model.to(device)
+        self.sl_model.to(device)
         self.fl_model.eval()
         self.sl_model.eval()
-
-        correct = 0
-
+       
+        batch_pred = torch.empty(0, 3).to(device)
+        data = data.to(device)
+        
         with torch.no_grad():
-            for data, target in test_loader:
-
-                data, target = data.to(device), target.to(device)
-                
-                fl_output = self.fl_model.forward(data)
+            for sample in data:
+                sample = torch.unsqueeze(sample, 0)
+                fl_output = self.fl_model.forward(sample)
                 fl_pred = torch.round(fl_output)
-
-                sl_output = self.sl_model.forward(data)
-                sl_pred = torch.round(sl_output)
-
-                # method to split the fl target and sl targets
-                fl_target = target[:,:1]
-                sl_target_covid = target[:,1:2] 
-                sl_target_noncovid = target[:,2:3]  
-                
-                #First Layer Check 
-                #for normal cases we manipulate so that 0 becomes 1, and 1 becomes 0           
-                fl_pred_mod = copy.deepcopy(fl_pred)
-                fl_pred_mod[fl_pred_mod==0] = 2
-                fl_pred_mod[fl_pred_mod==1] = 0
-                fl_pred_mod[fl_pred_mod==2] = 1
-
-                equal_data_fl = torch.sum(torch.mul(fl_target.data,fl_pred_mod)).item()
-                correct += equal_data_fl
-
-                #Second Layer Check 
-                #we copy another target tensor for covid cases and manipulate so that 0 becomes 1, and 1 becomes 0
-                sl_pred_covid = copy.deepcopy(sl_pred)             
-                sl_pred_covid[sl_pred_covid==0] = 2
-                sl_pred_covid[sl_pred_covid==1] = 0
-                sl_pred_covid[sl_pred_covid==2] = 1
-
-                #Accounts for the second layer check only when first layer shows that it is a 1 = Infected
-                sl_pred_covid = torch.mul(fl_pred,sl_pred_covid)
-                sl_pred_non_covid = torch.mul(fl_pred,sl_pred)
-                
-                #Calculates the equal matches between the target and data
-                equal_data_sl_covid = torch.sum(torch.mul(sl_target_covid.data,sl_pred_covid)).item()
-                equal_data_sl_non_covid = torch.sum(torch.mul(sl_target_noncovid.data,sl_pred_non_covid)).item()
-                     
-                correct += equal_data_sl_covid
-                correct += equal_data_sl_non_covid
-
-                #Final Pred Results
-                pred = torch.cat((fl_pred_mod,sl_pred_covid,sl_pred_non_covid),1) 
-
-        if print_acc == True:
-            print('Test set accuracy: ', 100. * correct / len(test_loader.dataset), '%')
-
-        if return_results == True:
-            return pred
-
-
-def combine_models(fl_image_path, sl_image_path, device, L_RATE):
+                if fl_pred == 0:
+                    batch_pred = torch.cat((batch_pred, torch.tensor([[1., 0., 0.]]).to(device)), 0)
+                else:
+                    sl_output = self.sl_model.forward(sample)
+                    sl_pred = torch.round(sl_output)
+                    if sl_pred == 0:
+                        batch_pred = torch.cat((batch_pred, torch.tensor([[0., 1., 0.]]).to(device)), 0)
+                    else:
+                        batch_pred = torch.cat((batch_pred, torch.tensor([[0., 0., 1.]]).to(device)), 0)
+        return batch_pred
     
-    fl_model = CNN().to(device)
-    fl_optimizer = optim.Adam(fl_model.parameters(), lr=L_RATE)
-    fl_model, _ = load_model(fl_model, fl_optimizer, fl_image_path, device)
+    def predict_loader(self, device, loader):
+        all_pred = torch.empty(0, 3).to(device)
+        
+        for data, labels in loader:
+            all_pred = torch.cat((all_pred, self.predict(device, data)), 0)
+        return all_pred
+        
+
+def load_combined(fl_model_path, sl_model_path, optim_class, lr, dropout):
+
+    fl_model, _ = load_model(optim_class, lr, dropout, fl_model_path)
     
-    sl_model = CNN().to(device)
-    sl_optimizer = optim.Adam(sl_model.parameters(), lr=L_RATE)
-    sl_model, _ = load_model(sl_model, sl_optimizer, sl_image_path, device)
+    sl_model, _ = load_model(optim_class, lr, dropout, sl_model_path)
 
     return Combined_Model(fl_model, sl_model)
+
+def accuracy(predicted, actual):
+    return ((predicted * actual).sum() / len(predicted)).item()
+
+def precision(predicted, actual):
+    classes = predicted.shape[1]
+    true_pos = []
+    all_pos = []
+    for i in range(classes):
+        true_pos.append(int((predicted[:, i] * actual[:, i]).sum().item()))
+        all_pos.append(int(predicted[:,i].sum().item()))
+    precision = [true_pos[i]/all_pos[i] for i in range(classes)]
+    return precision
+    
+def recall(predicted, actual):
+    classes = predicted.shape[1]
+    true_pos = []
+    relevant = []
+    for i in range(classes):
+        true_pos.append(int((predicted[:, i] * actual[:, i]).sum().item()))
+        relevant.append(int(actual[:,i].sum().item()))
+    recall = [true_pos[i]/relevant[i] for i in range(classes)]
+    return recall
