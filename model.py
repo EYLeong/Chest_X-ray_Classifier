@@ -68,7 +68,7 @@ def init_weights(m):
     if type(m) == nn.Linear or type(m) == nn.Conv2d:
         nn.init.kaiming_normal_(m.weight, nonlinearity='relu')
         
-def train(model, device, loss_criterion, optimizer, train_loader, val_loader, epochs, patience, layer):
+def train(model, device, loss_criterion, optimizer, train_loader, val_loader, epochs, patience, layer, scheduler, steps):
     best_loss = float("inf")
     early_stop = 0
     best_weights = None
@@ -80,12 +80,15 @@ def train(model, device, loss_criterion, optimizer, train_loader, val_loader, ep
     for i in range(epochs):
         print('\n')
         print("Epoch {}".format(i+1))
-        train_loss = train_epoch(model, device, loss_criterion, optimizer, train_loader)
+        train_loss = train_epoch(model, device, loss_criterion, optimizer, train_loader, scheduler)
         val_loss = validate(model, device, loss_criterion, val_loader)
 
         epoch_list.append(i+1)
         training_loss.append(train_loss)
         validate_loss.append(val_loss)
+
+        #Reset Scheduler for warm restart (but no proven performance increase)
+        #scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, steps)
         
         """
         Early Stopping 
@@ -104,7 +107,7 @@ def train(model, device, loss_criterion, optimizer, train_loader, val_loader, ep
     #Generate the learning curves
     utils.generate_graph(epoch_list,training_loss,validate_loss, layer)
 
-def train_epoch(model, device, loss_criterion, optimizer, train_loader):
+def train_epoch(model, device, loss_criterion, optimizer, train_loader, scheduler):
     model.to(device)
     model.train()
     
@@ -128,6 +131,9 @@ def train_epoch(model, device, loss_criterion, optimizer, train_loader):
         running_loss += loss.item()
         
         counter += 1
+
+        scheduler.step()
+        
         tk0.set_postfix(loss=(running_loss / counter))
 
     return (running_loss / counter)
