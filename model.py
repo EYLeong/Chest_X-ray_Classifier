@@ -41,7 +41,7 @@ class CNN(nn.Module):
         self.final = nn.Sequential(
             nn.AdaptiveAvgPool2d((1,1)),
             nn.Flatten())
-
+        
         self.fc = nn.Linear(512, 1)
         
         """
