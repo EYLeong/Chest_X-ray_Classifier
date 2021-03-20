@@ -182,7 +182,7 @@ def save_model(model, optimizer, path):
                   }
     torch.save(checkpoint, path)
 
-def load_model(optim_class, lr, dropout, path):
+def load_model(lr, dropout, wd, path):
     '''
     Saves model parameters instead of the whole model. 
     Requires first initialization of the model class to be fed as input to this function, in which
@@ -192,7 +192,7 @@ def load_model(optim_class, lr, dropout, path):
     checkpoint = torch.load(path)
     model = CNN(dropout=dropout)
     model.load_state_dict(checkpoint['state_dict'])
-    optimizer = optim_class(model.parameters(), lr=lr)
+    optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=wd)
     optimizer = optimizer.load_state_dict(checkpoint['opti_state_dict'])
     
     return model, optimizer
@@ -235,11 +235,11 @@ class Combined_Model:
         return all_pred
         
 
-def load_combined(fl_model_path, sl_model_path, optim_class, lr, dropout):
+def load_combined(fl_model_path, sl_model_path, lr1, dropout1, wd1, lr2, dropout2, wd2):
 
-    fl_model, _ = load_model(optim_class, lr, dropout, fl_model_path)
+    fl_model, _ = load_model(lr1, dropout1, wd1, fl_model_path)
     
-    sl_model, _ = load_model(optim_class, lr, dropout, sl_model_path)
+    sl_model, _ = load_model(lr2, dropout2, wd2, sl_model_path)
 
     return Combined_Model(fl_model, sl_model)
 
