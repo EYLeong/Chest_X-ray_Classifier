@@ -14,27 +14,27 @@ class CNN(nn.Module):
         Insert each layer blocks. Same architecture will be used for the first layer and second layer CNNs
         """
         self.conv1 = nn.Sequential(
-            nn.Conv2d(1, 64, kernel_size=5, stride=1, padding=1),
+            nn.Conv2d(1, 64, kernel_size=3, stride=1, padding=1),
+            nn.MaxPool2d(kernel_size=2, stride=2),
             nn.ReLU(),
-            nn.MaxPool2d(kernel_size=4, stride=1),
             nn.BatchNorm2d(64),
             nn.Dropout(p=dropout))
         self.conv2 = nn.Sequential(
-            nn.Conv2d(64, 128, kernel_size=5, stride=2, padding=1),
-            nn.ReLU(),
+            nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1),
             nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.ReLU(),
             nn.BatchNorm2d(128),
             nn.Dropout(p=dropout))
         self.conv3 = nn.Sequential(
-            nn.Conv2d(128, 256, kernel_size=3, stride=2, padding=1),
-            nn.ReLU(),
+            nn.Conv2d(128, 256, kernel_size=3, stride=1, padding=1),
             nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.ReLU(),
             nn.BatchNorm2d(256),
             nn.Dropout(p=dropout))
         self.conv4 = nn.Sequential(
             nn.Conv2d(256, 512, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(),
             nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.ReLU(),
             nn.BatchNorm2d(512),
             nn.Dropout(p=dropout))
 
