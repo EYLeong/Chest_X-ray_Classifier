@@ -15,9 +15,9 @@ def generate_graph(epoch_list, train_loss, validate_loss, model):
 	plt.legend()
 
 	if model == "fl":
-		fig.savefig('./saved_graphs/fl_learning_curve.png')
+		fig.savefig('./saved_graphs/fl_learning_curve_augmented.png')
 	elif model == "sl":
-		fig.savefig('./saved_graphs/sl_learning_curve.png')
+		fig.savefig('./saved_graphs/sl_learning_curve_augmented.png')
 
 def generate_performance_display(val_loader, pred, labels):
     '''
